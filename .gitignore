@@ -1,0 +1,6 @@
+.idea/
+.venv/
+logs/
+
+autosave_config.txt
+Pipfile.lock
