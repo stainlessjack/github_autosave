@@ -22,36 +22,37 @@ def autosave(project_path, openai_key, bypass_check=False):
             logging.info("No local changes older than 24 hours.")
             return
 
-        # Stash changes before switching branches
-        repo.git.stash('--include-untracked')
-
-        # Push up any untracked branches besides the current branch
-        push_untracked_branches(repo, current_branch_name)
-
-        # Find the branch to branch off of
-        common_ancestor = find_common_ancestor(repo, current_branch)
-        if not common_ancestor:
-            logging.error("No common ancestor found with any remote branch.")
-            return
-
-        # Push the current branch to the remote repository
-        repo.remotes.origin.push(current_branch_name)
-
-        # Create the autosave branch, add and commit the changes, and push the autosave branch to the remote repository
-        autosave_branch_name = create_autosave_branch(repo, current_branch_name, common_ancestor, now)
-        
-        # Apply the stashed changes to the new autosave branch
-        try:
-            repo.git.stash('apply')
-        except GitCommandError as e:
-            logging.error(f"Git command error during stash apply: {e}")
-
         if repo.is_dirty(untracked_files=True):
-            repo.git.add(A=True)
-            commit_message = generate_ai_message(repo.git.diff('HEAD', '--staged'), openai_key)
-            repo.index.commit(commit_message)
-            repo.remotes.origin.push(autosave_branch_name)
-        logging.info(f"Autosaved changes to branch {autosave_branch_name} for project {project_path}")
+            # Stash changes before switching branches
+            repo.git.stash('--include-untracked')
+
+            # Push up any untracked branches besides the current branch
+            push_untracked_branches(repo, current_branch_name)
+
+            # Find the branch to branch off of
+            common_ancestor = find_common_ancestor(repo, current_branch)
+            if not common_ancestor:
+                logging.error("No common ancestor found with any remote branch.")
+                return
+
+            # Push the current branch to the remote repository
+            repo.remotes.origin.push(current_branch_name)
+
+            # Create the autosave branch, add and commit the changes, and push the autosave branch to the remote repository
+            autosave_branch_name = create_autosave_branch(repo, current_branch_name, common_ancestor, now)
+            
+            # Apply the stashed changes to the new autosave branch
+            try:
+                repo.git.stash('apply')
+            except GitCommandError as e:
+                logging.error(f"Git command error during stash apply: {e}")
+
+            if repo.is_dirty(untracked_files=True):
+                repo.git.add(A=True)
+                commit_message = generate_ai_message(repo.git.diff('HEAD', '--staged'), openai_key)
+                repo.index.commit(commit_message)
+                repo.remotes.origin.push(autosave_branch_name)
+            logging.info(f"Autosaved changes to branch {autosave_branch_name} for project {project_path}")
     except GitCommandError as e:
         logging.error(f"Git command error during autosave for project {project_path}: {e}")
     except Exception as e:
